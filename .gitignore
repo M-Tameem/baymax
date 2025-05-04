@@ -10,3 +10,4 @@ serverside/.DS_Store
 serverside/data/.DS_Store
 .env
 serverside/server/.DS_Store
+baymax-app/node_modules/
