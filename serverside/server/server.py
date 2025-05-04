@@ -30,6 +30,19 @@ from gemini_client import configure, build_prompt, call_gemini, summarize_patien
 from safety_gate import safety_check
 
 
+def download_model():
+    url = "https://drive.google.com/file/d/1K4fFZaHMtJZvhlJLveILIWiUjgFB-frC/view?usp=sharing"
+    dest_path = "data/pkl/contraindication_embeddings_final.pkl"
+
+    if not os.path.exists(dest_path):
+        print("Downloading model...")
+        r = requests.get(url, stream=True)
+        with open(dest_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print("Download complete.")
+
+
 # Setup logging
 logger = setup_logging()
 
