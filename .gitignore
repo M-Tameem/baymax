@@ -1,0 +1,12 @@
+serverside/emr_venv/
+serverside/othersave
+serverside/save
+serverside/server/__pycache__/
+serverside/scripts/__pycache__/
+.DS_Store
+serverside/server/ddinter_embeddings.pkl
+serverside/data/pkl/*
+serverside/.DS_Store
+serverside/data/.DS_Store
+.env
+serverside/server/.DS_Store
