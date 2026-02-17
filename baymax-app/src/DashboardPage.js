@@ -75,8 +75,8 @@ function DashboardPage() {
   const fetchPatients = async (newFileName = null) => {
     try {
       setLoading(true);
-      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
-      const response = await fetch(`${baseUrl}list-all-patients`, {
+      const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/list-all-patients`, {
         headers: {
           "ngrok-skip-browser-warning": "true"
         }
@@ -144,8 +144,8 @@ function DashboardPage() {
 
     const fetchSummary = async () => {
       try {
-        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
-        const response = await fetch(`${baseUrl}summary`, {
+        const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/summary`, {
           method: 'POST',
           headers: {
             "Content-Type": "application/json",
@@ -179,8 +179,8 @@ const fetchAiSummary = async () => {
   setAiSummary(null);
 
   try {
-    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
-    const response = await fetch(`${baseUrl}ai-summary`, {
+    const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/ai-summary`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -214,14 +214,14 @@ const fetchAiSummary = async () => {
     setSubmittingDrug(true); // 🔒 Disable and show "Submitting..."
   
     setBaymaxPosition('right');
-    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
+    const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
     const payload = {
       file_path: selectedPatient,
       new_medication: newDrug.trim()
     };
   
     try {
-      const response = await fetch(`${baseUrl}submit-drug-order`, {
+      const response = await fetch(`${baseUrl}/submit-drug-order`, {
         method: 'POST',
         headers: {
           "Content-Type": "application/json",
@@ -241,7 +241,7 @@ const fetchAiSummary = async () => {
       console.warn("submit-drug-order failed, falling back to /match:", primaryErr);
   
       try {
-        const fallback = await fetch(`${baseUrl}match`, {
+        const fallback = await fetch(`${baseUrl}/match`, {
           method: 'POST',
           headers: {
             "Content-Type": "application/json",
@@ -272,13 +272,13 @@ const fetchAiSummary = async () => {
     setCheckingDischarge(true);
     setDischargeStatus(null);
   
-    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
+    const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
     const payload = { file_path: selectedPatient };
   
     console.log("Sending discharge request with payload:", payload);
   
     try {
-      const response = await fetch(`${baseUrl}discharge`, {
+      const response = await fetch(`${baseUrl}/discharge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -734,8 +734,8 @@ const fetchAiSummary = async () => {
                   formData.append("file", file);
 
                   try {
-                    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://36d7-131-104-23-185.ngrok-free.app/';
-                    const response = await fetch(`${baseUrl}upload-fhir`, {
+                    const baseUrl = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+                    const response = await fetch(`${baseUrl}/upload-fhir`, {
                       method: "POST",
                       body: formData,
                       headers: {

@@ -7,40 +7,26 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
-import datetime
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 
-# Add scripts/ directory to path for importing fhir_summary
-scripts_path = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.append(str(scripts_path))
-env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
-api_key = os.getenv("API_KEY")
+# Resolve directories relative to this file so the server can be started from any working directory
+BASE_DIR = Path(__file__).resolve().parent.parent
+FHIR_DIR = BASE_DIR / "data" / "fhir"
+
+# Add scripts/ to sys.path before local imports
+sys.path.append(str(BASE_DIR / "scripts"))
+
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 from contraindication_checker import ContraindicationChecker
-from fhir_summary import parse_fhir_file  # now importable
+from fhir_summary import parse_fhir_file
 from extract_active_medications import get_active_medications
 from extract_labs_vitals import get_clinical_data
-from models import FreeformSummary, SummaryRequest, MatchRequest
-from models import FreeformSummary, SummaryRequest, MatchRequest
+from models import SummaryRequest, MatchRequest
 from embedding import embed, cosine_similarity
 from data_processing import load_ddinter_data
 from utils import setup_logging, extract_drug_names, normalize_string, format_contraindication
-from gemini_client import configure, build_prompt, call_gemini, summarize_patient
-from safety_gate import safety_check
-
-
-def download_model():
-    url = "https://drive.google.com/file/d/1K4fFZaHMtJZvhlJLveILIWiUjgFB-frC/view?usp=sharing"
-    dest_path = "data/pkl/contraindication_embeddings_final.pkl"
-
-    if not os.path.exists(dest_path):
-        print("Downloading model...")
-        r = requests.get(url, stream=True)
-        with open(dest_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print("Download complete.")
+from gemini_client import configure, call_gemini, summarize_patient
 
 
 # Setup logging
@@ -49,7 +35,9 @@ logger = setup_logging()
 # Load DDInter data once at startup
 ddinter_df = load_ddinter_data()
 
-checker = ContraindicationChecker(contraindications_path="../data/pkl/contraindication_embeddings_final.pkl")
+checker = ContraindicationChecker(
+    contraindications_path=str(BASE_DIR / "data" / "pkl" / "contraindication_embeddings_final.pkl")
+)
 
 def create_full_summary(file_path):
     patient_summary = parse_fhir_file(file_path)
@@ -60,10 +48,16 @@ def create_full_summary(file_path):
     
     return patient_summary, meds_data, vitals_data
 
-GEMINI_MODEL = configure(api_key)
-#build_prompt("Gemini", "Gemini is a large language model that can assist with drug-drug interaction analysis.")
-#response = call_gemini("What is the drug-drug interaction between aspirin and ibuprofen?")
-#print(response)
+configure()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+
+def resolve_fhir_path(filename: str) -> Path:
+    """Safely resolve a FHIR filename to an absolute path, preventing directory traversal."""
+    path = (FHIR_DIR / filename).resolve()
+    if not str(path).startswith(str(FHIR_DIR)):
+        raise HTTPException(status_code=400, detail="Invalid file path.")
+    return path
 
 app = FastAPI()
 
@@ -78,7 +72,7 @@ app.add_middleware(
 @app.post("/match")
 def match_summary_input(request: MatchRequest):
     print(f"Received request: {request}")
-    file_path = Path("../data/fhir/" + request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
@@ -151,20 +145,18 @@ def match_summary_input(request: MatchRequest):
 
 @app.post("/summary")
 def get_summary(request: SummaryRequest):
-    # Check if the file exists
-    file_path = Path(request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
-    
-    # Proceed with summarization if file exists
-    summary = parse_fhir_file(request.file_path)
+
+    summary = parse_fhir_file(file_path)
     return summary
 
 
 @app.post("/discharge")
 def discharge_decision(request: SummaryRequest):
     print(f"Received request: {request}")
-    file_path = Path("../data/fhir/" + request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
 
@@ -217,7 +209,7 @@ def discharge_decision(request: SummaryRequest):
 
 @app.post("/extract-active-medications")
 def extract_active_medications(request: SummaryRequest):
-    file_path = Path("../data/fhir/" + request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
     medications = get_active_medications(file_path)
     if medications is None:
         return {"message": "Failed to parse file or no active medications found."}
@@ -225,7 +217,7 @@ def extract_active_medications(request: SummaryRequest):
 
 @app.post("/extract-labs-vitals")
 def extract_labs_vitals(request: SummaryRequest):
-    file_path = Path("../data/fhir/" + request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
     clinical_data = get_clinical_data(file_path)
     if clinical_data is None:
         return {"message": "Failed to parse file or no clinical data found."}
@@ -286,10 +278,10 @@ async def upload_fhir_file(file: UploadFile = File(...)):
 
 @app.post("/ai-summary")
 def ai_summary(request: SummaryRequest):
-    file_path = Path("../data/fhir/" + request.file_path)
+    file_path = resolve_fhir_path(request.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
-    
+
     try:
         patient_summary, active_meds, labs_vitals = create_full_summary(file_path)
         full_summary = summarize_patient(patient_summary, labs_vitals, active_meds)
@@ -304,7 +296,7 @@ def ai_summary(request: SummaryRequest):
 @app.post("/contraindication-checker")
 def contra_checker(request: MatchRequest):
     # 1) Locate the file
-    file_path = Path("../data/fhir/") / request.file_path
+    file_path = resolve_fhir_path(request.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
 
@@ -332,18 +324,6 @@ def contra_checker(request: MatchRequest):
     # 6) Return them in your response
     return {"contraindications": matches}
 
-#@app.post("/submit-drug-order")
-# """
-# first thing, parse the JSON file,
-# and extract the active medications, store in a variable
-# and extract lab vitals, store in a variable
-# and extract diagnoses, store in a variable
-# then, check for any drug-drug interactions with the new medication with the active medications
-# then check for any drug-lab interactions with the new medication with the lab vitals (THIS IS NOT IMPLEMENTED YET)
-# then also use the summary used from the AI summary endpoint to return
-# then check if either checks returned anything, if they did, have the results sent to gemini to make a readable summary of alerts
-# """
-
 @app.post("/submit-drug-order")
 def submit_drug_order(request: MatchRequest):
     """
@@ -356,7 +336,7 @@ def submit_drug_order(request: MatchRequest):
     logger.info(f"Processing drug order for medication: {request.new_medication} and file: {request.file_path}")
     
     # 1) Locate the file
-    file_path = Path("../data/fhir/") / request.file_path
+    file_path = resolve_fhir_path(request.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
 
@@ -472,10 +452,7 @@ def submit_drug_order(request: MatchRequest):
         raise HTTPException(status_code=500, detail=f"Failed to process drug order: {str(e)}")
     
 if __name__ == "__main__":
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=8000,
-        log_level="debug",  # Changed from "info" to "debug" for more details
-        access_log=True     # Changed from False to True to log all requests
-    )
+    # Pass the app object directly (not the string "server:app") so uvicorn
+    # doesn't import the module a second time, which would reload all the
+    # heavy ML models and data unnecessarily.
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info", access_log=True)

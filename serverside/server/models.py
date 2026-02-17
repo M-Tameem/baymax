@@ -1,10 +1,9 @@
 from pydantic import BaseModel
 
-class FreeformSummary(BaseModel):
-    summary: str  # format: "med1, med2, ... : new_med"
 
 class SummaryRequest(BaseModel):
-    file_path: str  # Path to FHIR JSON file
+    file_path: str  # Filename of a FHIR JSON file inside data/fhir/
+
 
 class MatchRequest(BaseModel):
     file_path: str

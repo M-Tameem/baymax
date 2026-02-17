@@ -1,0 +1,26 @@
+services:
+  # ── Backend (FastAPI) ────────────────────────────────────────────────────────
+  backend:
+    build: ./serverside
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./serverside/.env
+    volumes:
+      # Mount data directory so FHIR files persist between restarts
+      - ./serverside/data:/app/data
+    restart: unless-stopped
+
+  # ── Frontend (React → nginx) ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./baymax-app
+      args:
+        # Firebase vars are read from src/.env by CRA at build time automatically.
+        # Only inject the API URL here so it can differ per environment.
+        REACT_APP_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

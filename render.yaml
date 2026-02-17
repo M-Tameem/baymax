@@ -1,0 +1,48 @@
+# Render Blueprint — one-click deploy for Baymax
+# https://render.com/docs/blueprint-spec
+#
+# Usage:
+#   1. Fork this repo on GitHub
+#   2. Go to https://dashboard.render.com/blueprints → "New Blueprint Instance"
+#   3. Connect your repo and fill in the env var values when prompted
+
+services:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: baymax-backend
+    runtime: python
+    rootDir: serverside
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server/server.py
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false          # you'll paste this in the Render dashboard
+      - key: GEMINI_MODEL
+        value: models/gemini-1.5-pro-latest
+      - key: API_KEY
+        generateValue: true  # Render auto-generates a secure random string
+
+  # ── Frontend ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: baymax-frontend
+    runtime: static
+    rootDir: baymax-app
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        sync: false          # paste your backend URL after it's deployed
+      - key: REACT_APP_FIREBASE_API_KEY
+        sync: false
+      - key: REACT_APP_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: REACT_APP_FIREBASE_PROJECT_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_APP_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_MEASUREMENT_ID
+        sync: false

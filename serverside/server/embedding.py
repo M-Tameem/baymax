@@ -33,7 +33,7 @@ def embed(text: str) -> np.ndarray:
             max_length=512
         )
         inputs = {k: v.to(device) for k, v in inputs.items()}
-        with torch.cuda.amp.autocast(enabled=(device.type == 'cuda')):
+        with torch.amp.autocast('cuda', enabled=(device.type == 'cuda')):
             outputs = model(**inputs)
         emb = outputs.last_hidden_state[:, 0, :].cpu().numpy()
     return emb.squeeze()
