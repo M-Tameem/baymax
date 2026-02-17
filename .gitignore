@@ -21,9 +21,12 @@ env/
 serverside/emr_venv/
 
 # ── Large data / model files ──────────────────────────────────────────────────
-*.pkl
-serverside/data/pkl/
-serverside/data/ddinter/
+serverside/data/pkl/*.pkl
+
+!serverside/data/pkl/
+!serverside/data/pkl/download_models.sh
+!serverside/data/pkl/.gitkeep
+
 
 # ── Node / React ─────────────────────────────────────────────────────────────
 node_modules/

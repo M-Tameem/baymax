@@ -27,8 +27,8 @@ Requires Docker and Docker Compose.
 git clone https://github.com/baymaxey/baymax.git
 cd baymax
 
-cp serverside/.env.example serverside/.env
-# set GOOGLE_API_KEY in serverside/.env
+# create .env files populated with the information from .env.example in serverside/ and baymax-app/
+# run download_models.sh in serverside/data/pkl
 
 docker compose up --build
 ```
