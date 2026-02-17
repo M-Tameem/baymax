@@ -1,21 +1,44 @@
 # Baymax — Clinical AI Assistant
 
-A full-stack healthcare AI app that helps clinical staff make safer, faster decisions around medication orders and patient discharge. Upload a FHIR R4 patient record and Baymax runs a multi-model ML pipeline to surface drug interactions, contraindications, and discharge readiness — all in one dashboard.
+Baymax is a full-stack clinical decision support system that combines biomedical embedding models (SapBERT, SciBERT) and LLM reasoning (Gemini, Ollama) to detect drug interactions, contraindications, and unsafe dosages from FHIR R4 patient records in real time.
 
+It demonstrates how biomedical NLP pipelines and LLM-based reasoning can be integrated into a deployable, containerized system for safe and efficient clinical decision support.
+
+---
+
+## Key Engineering Highlights
+
+- Pre-computed biomedical embedding index (~100k vectors) enabling millisecond-latency similarity search  
+- Parallel safety pipeline combining embedding-based retrieval and LLM reasoning  
+- Fully containerized full-stack deployment (React + FastAPI + Nginx + Docker)  
+- Custom FHIR R4 parser for structured clinical data normalization  
+- Separation of offline embedding computation and runtime inference for scalability  
+- Persistent embedding cache eliminating expensive recomputation at runtime  
+
+---
+
+## System Architecture
+
+```
+FHIR Upload → FastAPI backend
+            → SapBERT similarity search (DDI detection)
+            → SciBERT contraindication similarity search
+            → Ollama dosage safety gate (local LLM)
+            → Gemini clinical reasoning and discharge assessment
+            → React dashboard visualization
+```
 ---
 
 ## What it does
 
 | Feature | How |
-|---------|-----|
+|--------|-----|
 | Patient dashboard | Parses a FHIR R4 JSON bundle into structured conditions, medications, labs, vitals, and allergies |
-| AI clinical narrative | Feeds the parsed summary to Google Gemini to generate a concise plain-English clinical note |
-| Drug-drug interaction check | Embeds the new drug name with SapBERT and runs cosine similarity against a pre-vectorised DDInter dataset |
-| Contraindication check | Embeds each sentence of the patient's clinical text with SciBERT and compares against pre-computed drug contraindication vectors |
-| Dosage safety gate | Asks a local LLM (Ollama) for a binary SAFE / UNSAFE verdict on the ordered dose before submission |
-| Discharge assessment | Sends current patient state to Gemini for a discharge recommendation with clinical reasoning |
-
-All three safety checks (DDI + contraindication + dosage) run in parallel on drug order submission.
+| AI clinical narrative | Uses Google Gemini to generate a concise clinical summary |
+| Drug-drug interaction check | Embeds drug name using SapBERT and performs cosine similarity search against pre-computed DDInter vectors |
+| Contraindication check | Uses SciBERT to embed patient clinical text and compare against contraindication embedding index |
+| Dosage safety gate | Uses local LLM (Ollama) to evaluate dosage safety |
+| Discharge assessment | Uses Gemini to evaluate discharge readiness |
 
 ---
 
@@ -24,49 +47,85 @@ All three safety checks (DDI + contraindication + dosage) run in parallel on dru
 Requires Docker and Docker Compose.
 
 ```bash
-git clone https://github.com/baymaxey/baymax.git
+git clone https://github.com/M-Tameem/baymax.git
 cd baymax
 
-# create .env files populated with the information from .env.example in serverside/ and baymax-app/
-# run download_models.sh in serverside/data/pkl
+# create environment files, make sure to modify them with the requisite information
+cp serverside/.env.example serverside/.env
+cp baymax-app/.env.example baymax-app/.env
 
+# download embedding caches
+./serverside/data/pkl/download_models.sh
+
+# start system
 docker compose up --build
 ```
 
-- App: http://localhost:3000
-- API + interactive docs: http://localhost:8000/docs
+Access:
+
+- Frontend: http://localhost:3000  
+- Backend API: http://localhost:8000/docs  
 
 ---
-## The ML in detail
+
+## Machine Learning Pipeline
 
 ### Data sources
-- **DDInter** — a published drug-drug interaction database (~40k pairs, severity-labelled). Drug pairs are filtered to remove "unknown" severity entries, normalised for spelling variants (British/US), and combined into natural-language phrases (e.g. `"aspirin and warfarin interaction (major)"`) before embedding.
-- **Drug contraindication data** — sourced and pre-processed into sentence-level contraindication statements per drug, covering 1,179 drugs. Stored as a serialised dict mapping drug name → list of (sentence, vector) pairs.
+
+- **DDInter**  
+  ~40k drug interaction pairs with severity labels  
+  Normalized and converted into natural-language phrases prior to embedding  
+
+- **FDA Contraindication dataset**  
+  1,179 drugs with sentence-level contraindication descriptions  
+  Stored as serialized embedding vectors  
+
+---
 
 ### Embedding models
-Both models are loaded at server startup and run on CPU (GPU if available):
 
-- **SapBERT** (`cambridgeltl/SapBERT-from-PubMedBERT-fulltext`) — biomedical entity embedding model fine-tuned on PubMed. Used for DDI search: the query drug's name is embedded and compared against every pre-vectorised DDInter combo to retrieve the top-k most similar interactions.
-- **SciBERT** (`allenai/scibert_scivocab_uncased`) — scientific language model from AllenAI. Used for contraindication matching: each sentence in the patient summary is embedded and scored against every contraindication sentence for the target drug; matches above a cosine similarity threshold (0.729, tuned empirically) are flagged.
+**SapBERT**  
+`cambridgeltl/SapBERT-from-PubMedBERT-fulltext`  
+- Biomedical entity embedding model  
+- Used for drug-drug interaction similarity search  
 
-### Embedding caches
-All DDInter combo embeddings and contraindication embeddings are pre-computed offline and stored as `.pkl` files. At runtime, the server loads these caches into memory — no re-embedding of the database on each request, only the query drug/patient text is embedded live.
+**SciBERT**  
+`allenai/scibert_scivocab_uncased`  
+- Scientific language embedding model  
+- Used for contraindication similarity matching  
+
+---
+
+### Embedding cache architecture
+
+All embeddings are computed offline and stored as `.pkl` files.
+Only the query drug and patient text are embedded at runtime.
+
+---
 
 ### Custom FHIR parser
-The FHIR parser (`fhir_summary.py`) is hand-written against the FHIR R4 bundle format. It walks the `entry` array, filters to clinically relevant resource types (`Condition`, `MedicationRequest`, `MedicationStatement`, `Observation`, `AllergyIntolerance`, `Patient`), deduplicates conditions by most-recent onset, resolves medication status conflicts (active > completed > stopped), and keeps only the most recent value per lab/vital. Social and non-clinical observations (employment, education, etc.) are excluded by keyword.
+
+The FHIR parser (`fhir_summary.py`) extracts structured patient state from FHIR R4 bundles - which is Ontario's current Patient Data Standard.
+
+Handles:
+
+- Condition deduplication
+- Medication status resolution
+- Lab and vital normalization
+- Removal of irrelevant social data
 
 ---
 
 ## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
+|------|------------|
 | Frontend | React 19, Tailwind CSS, Framer Motion, Firebase Auth |
 | Backend | FastAPI, Uvicorn, Python 3.11 |
-| Biomedical NLP | SapBERT + SciBERT via PyTorch + Hugging Face Transformers |
-| LLM (cloud) | Google Gemini (`google-generativeai`) |
-| LLM (local) | Ollama — Phi / Mistral for dosage safety gate |
-| Data | DDInter CSV, FHIR R4 JSON, pre-computed `.pkl` embedding caches |
+| Biomedical NLP | SapBERT, SciBERT, PyTorch, Hugging Face Transformers |
+| LLM (cloud) | Google Gemini |
+| LLM (local) | Ollama (Phi, Mistral) |
+| Data | DDInter CSV, FHIR R4 JSON, pre-computed embedding caches |
 | Infrastructure | Docker, Docker Compose, Nginx |
 
 ---
@@ -75,27 +134,17 @@ The FHIR parser (`fhir_summary.py`) is hand-written against the FHIR R4 bundle f
 
 ```
 baymax/
-├── baymax-app/                    # React frontend
+├── baymax-app/
 │   ├── src/
-│   │   ├── DashboardPage.js       # Patient view, drug orders, discharge UI
-│   │   └── contexts/              # Firebase auth context
 │   └── nginx.conf
 │
-└── serverside/                    # Python FastAPI backend
+└── serverside/
     ├── server/
-    │   ├── server.py              # All API endpoints
-    │   ├── embedding.py           # SapBERT embed + cosine similarity
-    │   ├── data_processing.py     # DDInter CSV loader + embedding cache
-    │   └── models.py              # Pydantic request/response models
     ├── scripts/
-    │   ├── fhir_summary.py        # Custom FHIR R4 bundle parser
-    │   ├── contraindication_checker.py   # SciBERT similarity pipeline
-    │   ├── safety_gate.py         # Ollama dosage safety check
-    │   └── gemini_client.py       # Gemini API wrapper
     └── data/
-        ├── ddinter/               # DDInter interaction CSV
-        ├── fhir/                  # Uploaded patient files
-        └── pkl/                   # Pre-computed embedding caches
+        ├── ddinter/
+        ├── fhir/
+        └── pkl/
 ```
 
 ---
