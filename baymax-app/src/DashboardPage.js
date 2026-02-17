@@ -151,7 +151,7 @@ function DashboardPage() {
             "Content-Type": "application/json",
             "ngrok-skip-browser-warning": "true"
           },
-          body: JSON.stringify({ file_path: `../data/fhir/${selectedPatient}` })
+          body: JSON.stringify({ file_path: selectedPatient })
         });
 
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
