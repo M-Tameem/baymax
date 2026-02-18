@@ -1,6 +1,3 @@
-# Render Blueprint — one-click deploy for Baymax
-# https://render.com/docs/blueprint-spec
-#
 # Usage:
 #   1. Fork this repo on GitHub
 #   2. Go to https://dashboard.render.com/blueprints → "New Blueprint Instance"

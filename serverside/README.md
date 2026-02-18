@@ -1,4 +1,4 @@
-# Baymax — Backend
+# Baymax - Backend
 
 FastAPI backend for the Baymax clinical AI assistant.
 See the [root README](../README.md) for full setup and deployment instructions.
@@ -11,7 +11,7 @@ cp .env.example .env   # fill in GOOGLE_API_KEY
 python server/server.py
 ```
 
-Server runs on `http://localhost:8000` — interactive docs at `/docs`.
+Server runs on `http://localhost:8000` - interactive docs at `/docs`.
 
 ## Data files
 

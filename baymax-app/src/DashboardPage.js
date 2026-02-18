@@ -10,7 +10,7 @@ function BaymaxPointer({ baymaxPosition }) {
       "Click 'Submit Order' to check drug interactions instantly.",
       "Need a quick overview? Tap 'Show Patient Summary' for clinical highlights.",
       "Not sure about discharge? Use the 'Check Discharge Eligibility' button.",
-      "I can help flag dangerous drug combinations — just enter a new medication.",
+      "I can help flag dangerous drug combinations - just enter a new medication.",
       "You can switch patients using the dropdown at the top left.",
       "Don't forget to review allergies before placing a new drug order.",
       "You are doing an incredible job. Patient safety starts with you."

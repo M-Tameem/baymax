@@ -1,4 +1,4 @@
-# Baymax — Clinical AI Assistant
+# Baymax - Clinical AI Assistant
 
 Baymax is a full-stack clinical decision support system that combines biomedical embedding models (SapBERT, SciBERT) and LLM reasoning (Gemini, Ollama) to detect drug interactions, contraindications, and unsafe dosages from FHIR R4 patient records in real time.
 
